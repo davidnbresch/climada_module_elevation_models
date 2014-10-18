@@ -56,8 +56,8 @@ if ~exist('etopo_coords','var'),etopo_coords=[];end
 % The etopometry dataset (ETOPO1 high res, ETOPO2 mid res). Note that
 % ETOPO2 is not as consistent as ETOPO1, hence ETOPO1 is highly recommended
 % See the readme files in the folder the ETOPO data resides
-%etopo_data_file=[climada_global.additional_dir filesep 'etopo' filesep 'data' filesep 'ETOPO2.nc'];
-etopo_data_file=[climada_global.additional_dir filesep 'etopo' filesep 'data' filesep 'ETOPO1.nc'];
+%etopo_data_file=[climada_global.modules_dir filesep 'etopo' filesep 'data' filesep 'ETOPO2.nc'];
+etopo_data_file=[climada_global.modules_dir filesep 'etopo' filesep 'data' filesep 'ETOPO1.nc'];
 %
 check_plot=0; % wheher a check plot (=1) or not (=0)
 

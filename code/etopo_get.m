@@ -1,4 +1,4 @@
-function ETOPO=etopo_get(etopo_coords)
+function ETOPO=etopo_get(etopo_coords,check_plot)
 % climada topography ETOPO bathymetry
 % NAME:
 %   etopo_get
@@ -33,6 +33,7 @@ function ETOPO=etopo_get(etopo_coords)
 %       if empty (or not provided): TEST mode, you should get an area
 %       around Switzerland - and the elevation is plotted, too.
 % OPTIONAL INPUT PARAMETERS:
+%   check_plot: show a check plot, if =1, (default=0)
 % OUTPUTS:
 %   ETOPO: a structure, with
 %       x(i,j): the longitude coordinates
@@ -45,21 +46,23 @@ function ETOPO=etopo_get(etopo_coords)
 
 ETOPO=[]; % init output
 
-global climada_global
+%%global climada_global
 if ~climada_init_vars,return;end % init/import global variables
 
 % poor man's version to check arguments
 if ~exist('etopo_coords','var'),etopo_coords=[];end
+if ~exist('check_plot','var'),check_plot=0;end
 
 % PARAMETERS
+%
+module_data_dir=[fileparts(fileparts(mfilename('fullpath'))) filesep 'data'];
 %
 % The etopometry dataset (ETOPO1 high res, ETOPO2 mid res). Note that
 % ETOPO2 is not as consistent as ETOPO1, hence ETOPO1 is highly recommended
 % See the readme files in the folder the ETOPO data resides
-%etopo_data_file=[climada_global.modules_dir filesep 'etopo' filesep 'data' filesep 'ETOPO2.nc'];
-etopo_data_file=[climada_global.modules_dir filesep 'etopo' filesep 'data' filesep 'ETOPO1.nc'];
-%
-check_plot=0; % wheher a check plot (=1) or not (=0)
+%etopo_data_file=[module_data_dir filesep 'ETOPO2.nc']; % low res
+etopo_data_file=[module_data_dir filesep 'ETOPO1.nc'];
+
 
 % TEST only (hard-wired area and check plot
 if isempty(etopo_coords),etopo_coords=[4 14 43 53];check_plot=1;end

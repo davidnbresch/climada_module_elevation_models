@@ -42,6 +42,7 @@ function ETOPO=etopo_get(etopo_coords,check_plot)
 %       sourcefile: the source file (.../ETOPO1.nc)
 % MODIFICATION HISTORY:
 % David N. Bresch, david.bresch@gmail.com, 20140422
+% David N. Bresch, david.bresch@gmail.com, 20141022, small fix if requested area ourside limits (just a FIX, not a nice one, see below)
 %-
 
 ETOPO=[]; % init output
@@ -115,6 +116,8 @@ county=endy-starty+1; % y(starty+county)
 % z  = ncread(file,'z',[1 3000], [Inf Inf]); % the full dataset
 
 % read the required subset of the global dataset
+if isnan(startx),startx=1;end % 20141022, david_bresch@gmail.com
+if isnan(countx),countx=1;end % 20141022, david_bresch@gmail.com
 ETOPO.h = ncread(etopo_data_file,'z',[startx starty], [countx+1 county+1]);
 ETOPO.h=ETOPO.h'; % transpose to fit meshgrid definition (see next line)
 

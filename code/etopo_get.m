@@ -68,6 +68,11 @@ etopo_data_file=[module_data_dir filesep 'ETOPO1.nc'];
 % TEST only (hard-wired area and check plot
 if isempty(etopo_coords),etopo_coords=[4 14 43 53];check_plot=1;end
 
+if ~exist('ncread')
+    fprintf('Error: ncread does not exist, aborted (might be in toolbox/matlab/imagesci)\n');
+    return
+end
+
 % open netCDF file and read etopo rectangle
 % -----------------------------------------
 

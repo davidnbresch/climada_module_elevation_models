@@ -1,9 +1,9 @@
-function ETOPO=etopo_get(etopo_coords,check_plot)
+function ETOPO=etopo_get(etopo_coords,check_plot,save_tile)
 % climada topography ETOPO bathymetry
 % NAME:
 %   etopo_get
 % PURPOSE:
-%   get a chunk of the global ETOPO elevation (and bathymetry) dataset.
+%   get a chunk (tile) of the global ETOPO elevation (and bathymetry) dataset.
 %
 %   Test it calling etopo_get without any argument (you should get an area
 %   around Switzerland)
@@ -24,7 +24,7 @@ function ETOPO=etopo_get(etopo_coords,check_plot)
 %      around Switzerland)
 %
 % CALLING SEQUENCE:
-%   ETOPO=etopo_get(etopo_coords)
+%   ETOPO=etopo_get(etopo_coords,check_plot,save_tile)
 % EXAMPLE:
 %   ETOPO=etopo_get([4 14 43 53])
 % INPUTS:
@@ -34,25 +34,36 @@ function ETOPO=etopo_get(etopo_coords,check_plot)
 %       around Switzerland - and the elevation is plotted, too.
 % OPTIONAL INPUT PARAMETERS:
 %   check_plot: show a check plot, if =1, (default=0)
+%   save_tile: =1: save the respective etopo tile, in order to speed up in
+%       subsequent calls. =0 (default): do not save anything
+%       Warning: the user is responsible for managing such tiles in the
+%       ../data/results folder 
+%       The option has mainly been introduced to support use of etopo_get
+%       under Octave, which does not yert provide ncread. Please note that
+%       check_plot does not work on subsequent calls.
 % OUTPUTS:
 %   ETOPO: a structure, with
 %       x(i,j): the longitude coordinates
 %       y(i,j): the latitude coordinates
 %       h(i,j): the elevation [m, negative below sea level]
 %       sourcefile: the source file (.../ETOPO1.nc)
+%   If save_tile=1, the tile as returned is also saved to
+%       ../data/results/etopo_*
 % MODIFICATION HISTORY:
 % David N. Bresch, david.bresch@gmail.com, 20140422
 % David N. Bresch, david.bresch@gmail.com, 20141022, small fix if requested area ourside limits (just a FIX, not a nice one, see below)
+% David N. Bresch, david.bresch@gmail.com, 20150101, save_tile
 %-
 
 ETOPO=[]; % init output
 
-%%global climada_global
+global climada_global
 if ~climada_init_vars,return;end % init/import global variables
 
 % poor man's version to check arguments
 if ~exist('etopo_coords','var'),etopo_coords=[];end
 if ~exist('check_plot','var'),check_plot=0;end
+if ~exist('save_tile','var'),save_tile=0;end
 
 % PARAMETERS
 %
@@ -67,6 +78,20 @@ etopo_data_file=[module_data_dir filesep 'ETOPO1.nc'];
 
 % TEST only (hard-wired area and check plot
 if isempty(etopo_coords),etopo_coords=[4 14 43 53];check_plot=1;end
+
+% we construct the (kind of) unique save file to store the requested tile
+% in order to speed-up subsequent calls
+[~,fN]=fileparts(etopo_data_file);
+etopo_save_file=[climada_global.data_dir filesep 'results' ...
+    filesep fN '_' strrep(num2str(etopo_coords),' ','_') '.mat'];
+etopo_save_file=strrep(etopo_save_file,'__','_');
+
+% check wehther the exact same tile has been requested and saved before
+if exist(etopo_save_file,'file')
+    fprintf('reading ETOPO tile from %s (delete to read new again)\n',etopo_save_file)
+    load(etopo_save_file) % contains ETOPO
+    return
+end
 
 if ~exist('ncread')
     fprintf('Error: ncread does not exist, aborted (might be in toolbox/matlab/imagesci)\n');
@@ -130,6 +155,12 @@ ETOPO.h=ETOPO.h'; % transpose to fit meshgrid definition (see next line)
 [ETOPO.x,ETOPO.y]=meshgrid(x(startx:startx+countx), y(starty:starty+county));
 
 ETOPO.sourcefile=etopo_data_file;
+
+if save_tile
+    % save the ETOPO for speedup in subsequent calls
+    fprintf('saving ETOPO tile as %s (delete to read new again)\n',etopo_save_file)
+    save(etopo_save_file,'ETOPO') % contains ETOPO
+end
 
 if check_plot
     figure('Name','ETOPO','Color',[1 1 1]);

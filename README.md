@@ -1,7 +1,9 @@
-climada_module_etopo
-====================
+climada_module_elevation_models
+===============================
 
-ETOPO topography (worldwide, high-res)
+formerly named climada_module_etopo, until 20151224
+
+Diverse (high resolution) digital elevation models, like ETOPO and SRTM
 
 In order to grant core climada access to additional modules, create a folder ‘modules’ in the core climada folder and copy/move any additional modules into climada/modules, without 
 'climada_module_' in the filename. 

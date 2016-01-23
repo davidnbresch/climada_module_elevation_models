@@ -1,27 +1,32 @@
-function SRTM = climada_srtm_get(centroidsORcountryORshapes,check_plot,save_tile)
+function [SRTM,srtm_info] = climada_srtm_get(centroidsORcountryORshapes,check_plot,save_tile,verbose)
 % climada
 % MODULE:
-%   etopo
+%   elevation_models
 % NAME:
 %   climada_srtm_get
 % PURPOSE:
 %   Read the digital elevation model data from the files in an existing
 %   srtm directory. Data can be downloaded from http://srtm.csi.cgiar.org/SELECTION/inputCoord.asp
+%   or http://srtm.csi.cgiar.org/index.asp
 % CALLING SEQUENCE:
 %   SRTM = climada_srtm_get(country_name, srtm_dir, DEM_save_file, smooth, check_plot)
 % EXAMPLE:
+%   [SRTM,srtm_info] = climada_srtm_get('Switzerland',1,1,1)
+%
 %   SRTM = climada_srtm_get('El Salvador',1,0)
 %   SRTM = climada_srtm_get([-89.15 -89.1 13.695 13.73],1,0) % las canas area, San Salvador
 %   SRTM = climada_srtm_get([min_lon max_lon min_lat max_lat],1,0)
 % INPUTS:
 % OPTIONAL INPUT PARAMETERS:
 %   centroidsORcountryORshapes:  can be a country_name 'El Salvador', or
-%   coordinates of the rectangle box to get topography within [lonmin lonmax latmin latmax]
+%       coordinates of the rectangle box to get topography within [lonmin lonmax latmin latmax]
+%       or centroids (as e.g. from climada_centroids_load)
 %   check_plot: show a check plot, if =1, (default=0)
 %   save_tile: =1: save the respective SRTM tiles, in order to speed up in
 %       subsequent calls. =0 (default): do not save anything
 %       Warning: the user is responsible for managing such tiles in the
 %       ../data/results folder 
+%   verbose: =1 print info, =0 not (default)
 % OUTPUTS:
 %   SRTM: a structure, with
 %       .x(i,j): the longitude coordinates
@@ -32,37 +37,36 @@ function SRTM = climada_srtm_get(centroidsORcountryORshapes,check_plot,save_tile
 %       ../data/results/etopo_*
 % MODIFICATION HISTORY:
 % Lea Mueller, muellele@gmail.com, 20150723, init based on climada_90m_DEM by Gilles Stassen and etopo_get by David Bresch
+% david.bresch@gmail.com, 20160122, srtm folder moved, some fixes (removed hard-wired paths)
 %-
 
-SRTM =[];
+SRTM=[];srtm_info=[]; % init output
 
 global climada_global
 if ~climada_init_vars,return;end % init/import global variables
 
-if exist(climada_global.map_border_file, 'file')
-    load(climada_global.map_border_file)
-end
+if exist(climada_global.map_border_file,'file'),load(climada_global.map_border_file);end
 
-module_data_dir = [fileparts(fileparts(mfilename('fullpath'))) filesep 'data'];
-% for testing
-module_data_dir = '\\CHRB1065.CORP.GWPNET.COM\homes\X\S3BXXW\Documents\lea\climada_git\climada_modules\etopo\data';
+% check for srtm folder in climada_data/srtm (we can not store to the
+% elevation_models module, as this creates troubles when updating code via github)
+srtm_data_dir= [climada_global.data_dir filesep 'srtm'];
+if ~isdir(srtm_data_dir),mkdir(fileparts(srtm_data_dir),'srtm');end % create, should it not exist (no further checking)
 
 if ~exist('centroidsORcountryORshapes', 'var'), centroidsORcountryORshapes  = []; end
 if ~exist('save_tile','var'), save_tile = [];  end
 if ~exist('check_plot','var'), check_plot = 0; end
 if ~exist('save_tile','var'), save_tile = 0; end
-% if ~exist('srtm_dir',           'var'),     srtm_dir            = 'DL'; end
-% if ~exist('smooth',             'var'),     smooth              = [];   end
+if ~exist('verbose','var'), verbose = 0; end
 
 % get srtm infos (filenames)
-is_mat = 0; %init
-[srtm_info is_mat] = climada_srtm_info(centroidsORcountryORshapes,1);
+[srtm_info,is_mat] = climada_srtm_info(centroidsORcountryORshapes,1);
 
 if is_mat
+    % load from previously processed .mat file
+    if verbose,fprintf('loading SRTM from %s\n',srtm_info.srtm_save_file);end
     load(srtm_info.srtm_save_file)
-end
-    
-if ~is_mat % mat-file does not yet exist, so we create it
+else
+    % mat-file does not yet exist, so we create it
     % init SRTM structure, analog to ETOPO (see etopo_get.m)
     SRTM.x = [];
     SRTM.y = []; 
@@ -70,9 +74,10 @@ if ~is_mat % mat-file does not yet exist, so we create it
     SRTM.filename = srtm_info.srtm_save_file;
     SRTM.sourcefile = '';
 
-    % check if the srtm files are downloaded and saved in etopo/data
+    % check if the srtm files are downloaded and saved in climada data folder, subfolder srtm
     for tile_i = 1:srtm_info.n_tiles
-        filename = [module_data_dir filesep strrep(srtm_info.srtm_filename{tile_i},'.zip','.tif')];
+        bare_filename=strrep(srtm_info.srtm_filename{tile_i},'.zip','');
+        filename = [srtm_data_dir filesep bare_filename filesep bare_filename '.tif'];
         if ~exist(filename,'file') 
             srtm_info = climada_srtm_info(centroidsORcountryORshapes,0);
             return
@@ -84,7 +89,9 @@ if ~is_mat % mat-file does not yet exist, so we create it
     [I,J]   = meshgrid([srtm_info.min_max_lon_lat(1): srtm_info.min_max_lon_lat(2)],[srtm_info.min_max_lon_lat(3): srtm_info.min_max_lon_lat(4)]);
     % srtm_raw_data.grid = 
     for tile_i = 1:srtm_info.n_tiles
-        filename = [module_data_dir filesep strrep(srtm_info.srtm_filename{tile_i},'.zip','.tif')];
+        bare_filename=strrep(srtm_info.srtm_filename{tile_i},'.zip','');
+        filename = [srtm_data_dir filesep bare_filename filesep bare_filename '.tif'];
+        %filename = [srtm_data_dir filesep strrep(srtm_info.srtm_filename{tile_i},'.zip','.tif')];
         [~, ~, fE] = fileparts(filename);        
         if strcmp(fE, '.tif') %|| strcmp(fE, '.tif.aux.xml')
             srtm_raw_data(I(tile_i),J(tile_i)).grid = flipud(imread(filename));
@@ -139,10 +146,21 @@ end %~is_mat
     
 
 % cut out relevant area
+
+if isstruct(centroidsORcountryORshapes)
+    centroids_rect=[min(centroidsORcountryORshapes.lon) ...
+        max(centroidsORcountryORshapes.lon) ...
+        min(centroidsORcountryORshapes.lat) ...
+        max(centroidsORcountryORshapes.lat)];
+    clear centroidsORcountryORshapes
+    centroidsORcountryORshapes=centroids_rect;
+end % isstruct(centroidsORcountryORshapes)
+
 if isnumeric(centroidsORcountryORshapes)
+    if verbose,fprintf('restricting to [%2.3f %2.3f %2.3f %2.3f]... ',centroidsORcountryORshapes);end
     % we have a box of lon/lat
     % instead of inpoly, we can use a simple selector, as we have a
-    % rectangel anyway
+    % rectangle anyway
     %points = [SRTM.x(:) SRTM.y(:)];
     %polygon = centroidsORcountryORshapes([1 3; 2 4]);
     %is_selected = inpoly(points,polygon);
@@ -152,8 +170,9 @@ if isnumeric(centroidsORcountryORshapes)
     min_I = min(I); max_I = max(I); min_J = min(J); max_J = max(J);
     SRTM.x = SRTM.x(min_I:max_I, min_J:max_J);
     SRTM.y = SRTM.y(min_I:max_I, min_J:max_J);
-    SRTM.h = SRTM.h(min_I:max_I, min_J:max_J);    
-end
+    SRTM.h = SRTM.h(min_I:max_I, min_J:max_J);  
+    if verbose,fprintf('done\n');end
+end % isnumeric(centroidsORcountryORshapes)
 
 
 if check_plot
@@ -173,9 +192,7 @@ if check_plot
     climada_figure_scale_add
 end
 
-
-
-
+% NOT properly implemented yet:
 % smooth the DEM if desired
 % if ~isempty(smooth) && any(smooth) && ~isnan(smooth)
 %     if isscalar(smooth)
@@ -186,5 +203,4 @@ end
 %     SRTM_grid = filter2(smooth_matrix,SRTM_grid);
 % end
 
-
-
+end % climada_srtm_get

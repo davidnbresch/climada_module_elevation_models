@@ -1,4 +1,4 @@
-function [srtm_info is_mat] = climada_srtm_info(centroidsORcountryORshapes,silent_mode)
+function [srtm_info,is_mat] = climada_srtm_info(centroidsORcountryORshapes,silent_mode)
 % climada
 % MODULE:
 %   etopo
@@ -7,12 +7,15 @@ function [srtm_info is_mat] = climada_srtm_info(centroidsORcountryORshapes,silen
 % PURPOSE:
 %   Get tile information for a specified country, centroids or a shape,
 %   i.e. which tiles to download from srtm directory.
-%   Data needs to be downloaded from from
+%
+%   Data needs to be manually downloaded from from
 %   http://srtm.csi.cgiar.org/SELECTION/inputCoord.asp,
-%   ftp://srtm.csi.cgiar.org/SRTM_V41/SRTM_Data_GeoTiff/,
-%   http://droppr.org/srtm/v4.1/6_5x5_TIFs/ 
+%   (or possibly also ftp://srtm.csi.cgiar.org/SRTM_V41/SRTM_Data_GeoTiff/,
+%   http://droppr.org/srtm/v4.1/6_5x5_TIFs/)
+%   
+%   Next call: climada_srtm_get
 % CALLING SEQUENCE:
-%   srtm_info = climada_srtm_tile_find(centroidsORcountryORshapes)
+%   [srtm_info,is_mat] = climada_srtm_info(centroidsORcountryORshapes,silent_mode)
 % EXAMPLE:
 %   srtm_info = climada_srtm_info
 %   srtm_info = climada_srtm_info('Netherlands')
@@ -29,9 +32,11 @@ function [srtm_info is_mat] = climada_srtm_info(centroidsORcountryORshapes,silen
 %        .min_max_lon_lat: a 4x1 vector containing the srtm tile indices (e.g [18 19 10 10] for El Salvador)
 %        .srtm_filename: a cell with filenames to be downloaded from srtm
 %        .srtm_save_file: a char with the srtm filename (as .mat)
-%  is_mat: 1 if matfile exists, 0 if it does not exist
+%   is_mat: =1 if matfile exists, =0 if it does not exist (=1 usually only
+%       after climada_srtm_get has been called)
 % MODIFICATION HISTORY:
 % Lea Mueller, muellele@gmail.com, 20150720, init based on climada_90m_DEM by Gilles Stassen
+% david.bresch@gmail.com, 20160122, srtm folder moved, some fixes (removed hard-wired paths)
 %-
 
 srtm_info = [];
@@ -48,11 +53,19 @@ if ~exist('centroidsORcountryORshapes', 'var'), centroidsORcountryORshapes = [];
 if ~exist('silent_mode', 'var'), silent_mode  = ''; end
 if isempty(silent_mode),silent_mode = 0;end
 
+% PARAMETERS
+%
+% where the user can (manually) download the SRTM tiles
+%srtm_address = 'ftp://srtm.csi.cgiar.org/SRTM_V41/SRTM_Data_GeoTiff/ ';
+srtm_address = 'http://srtm.csi.cgiar.org/SELECTION/inputCoord.asp';
 
 % init
 country_name = [];
 
-module_data_dir = [fileparts(fileparts(mfilename('fullpath'))) filesep 'data'];
+% check for srtm folder in {climada_global.data_dir}/srtm (we can not store to the
+% elevation_models module, as this creates troubles when updating code via github)
+srtm_data_dir= [climada_global.data_dir filesep 'srtm'];
+if ~isdir(srtm_data_dir),mkdir(fileparts(srtm_data_dir),'srtm');end % create, should it not exist (no further checking)
 
 if ~isempty(centroidsORcountryORshapes)
     if isstruct(centroidsORcountryORshapes) && isfield(centroidsORcountryORshapes,'centroid_ID')
@@ -146,8 +159,9 @@ end
 % create a specific filename that containts the min_max_lon_lats, to store the requested tile
 % in order to speed-up subsequent calls
 srtm_mat_filename = sprintf('srtm_%d_%d_%d_%d',srtm_min_lon_ndx,srtm_max_lon_ndx,srtm_min_lat_ndx,srtm_max_lat_ndx);
-srtm_save_file = [climada_global.data_dir filesep 'results' filesep srtm_mat_filename '.mat'];
-if exist(srtm_save_file), is_mat = 1; end
+%%srtm_save_file = [climada_global.data_dir filesep 'results' filesep srtm_mat_filename '.mat'];
+srtm_save_file = [srtm_data_dir filesep srtm_mat_filename '.mat'];
+if exist(srtm_save_file,'file'), is_mat = 1; end
 
 % set output structure
 srtm_info.country_name = country_name;
@@ -162,10 +176,10 @@ srtm_info.srtm_save_file = srtm_save_file;
 if ~silent_mode
     fprintf('SRTM DATA for %s (90m Digital Elevation Model)\n',country_name)
     if ~is_mat
-        srtm_address = 'ftp://srtm.csi.cgiar.org/SRTM_V41/SRTM_Data_GeoTiff/ ';
-        fprintf('Please download tif files from %s \n',srtm_address)
-        fprintf('\t save in %s \n\t and unzip the following files\n',module_data_dir)
-        fprintf('\t - %s \n', srtm_filename{:})
+        fprintf('Please download tif files from <a href="%s">%s</a> \n',srtm_address,srtm_address)
+        fprintf(' Note: for Tyle X we use XX and for Tyle Y we use YY here\n')
+        fprintf(' save in %s/srtm_XX_YY/srtm_XX_YY.tif \n and unzip the following files (srtm_XX_YY.zip)\n',srtm_data_dir)
+        fprintf('  - %s\n', srtm_filename{:})
         % fprintf('\t save in %s \n\t and unzip\n', module_data_dir)
         % fprintf('<a href="%s">%s</a> \n', srtm_address, srtm_address)
     else
@@ -173,4 +187,4 @@ if ~silent_mode
     end
 end
 
-
+end % climada_srtm_info

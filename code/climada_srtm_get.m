@@ -8,8 +8,13 @@ function [SRTM,srtm_info] = climada_srtm_get(centroidsORcountryORshapes,check_pl
 %   Read the digital elevation model data from the files in an existing
 %   srtm directory. Data can be downloaded from http://srtm.csi.cgiar.org/SELECTION/inputCoord.asp
 %   or http://srtm.csi.cgiar.org/index.asp
+%
+%   The code tries to automatically get the tiles from
+%   http://droppr.org/srtm/v4.1/6_5x5_TIFs/ (see SRTM_URL in PARAMETERS in
+%   code). If this fails, the list of required tiles of the SRTM is printed
+%   to stdout for the suer to manually retrieve
 % CALLING SEQUENCE:
-%   SRTM = climada_srtm_get(country_name, srtm_dir, DEM_save_file, smooth, check_plot)
+%   [SRTM,srtm_info] = climada_srtm_get(centroidsORcountryORshapes,check_plot,save_tile,verbose)
 % EXAMPLE:
 %   [SRTM,srtm_info] = climada_srtm_get('Switzerland',1,1,1)
 %
@@ -25,7 +30,7 @@ function [SRTM,srtm_info] = climada_srtm_get(centroidsORcountryORshapes,check_pl
 %   save_tile: =1: save the respective SRTM tiles, in order to speed up in
 %       subsequent calls. =0 (default): do not save anything
 %       Warning: the user is responsible for managing such tiles in the
-%       ../data/results folder 
+%       ../data/results folder
 %   verbose: =1 print info, =0 not (default)
 % OUTPUTS:
 %   SRTM: a structure, with
@@ -38,6 +43,7 @@ function [SRTM,srtm_info] = climada_srtm_get(centroidsORcountryORshapes,check_pl
 % MODIFICATION HISTORY:
 % Lea Mueller, muellele@gmail.com, 20150723, init based on climada_90m_DEM by Gilles Stassen and etopo_get by David Bresch
 % david.bresch@gmail.com, 20160122, srtm folder moved, some fixes (removed hard-wired paths)
+% david.bresch@gmail.com, 20160126, automatic retreive implemented
 %-
 
 SRTM=[];srtm_info=[]; % init output
@@ -45,18 +51,23 @@ SRTM=[];srtm_info=[]; % init output
 global climada_global
 if ~climada_init_vars,return;end % init/import global variables
 
-if exist(climada_global.map_border_file,'file'),load(climada_global.map_border_file);end
+if ~exist('centroidsORcountryORshapes', 'var'), centroidsORcountryORshapes  = []; end
+if ~exist('save_tile','var'), save_tile = [];  end
+if ~exist('check_plot','var'), check_plot = 0; end
+if ~exist('save_tile','var'), save_tile = 0; end
+if ~exist('verbose','var'), verbose = 0; end
 
 % check for srtm folder in climada_data/srtm (we can not store to the
 % elevation_models module, as this creates troubles when updating code via github)
 srtm_data_dir= [climada_global.data_dir filesep 'srtm'];
 if ~isdir(srtm_data_dir),mkdir(fileparts(srtm_data_dir),'srtm');end % create, should it not exist (no further checking)
 
-if ~exist('centroidsORcountryORshapes', 'var'), centroidsORcountryORshapes  = []; end
-if ~exist('save_tile','var'), save_tile = [];  end
-if ~exist('check_plot','var'), check_plot = 0; end
-if ~exist('save_tile','var'), save_tile = 0; end
-if ~exist('verbose','var'), verbose = 0; end
+% PARAMETERS
+%
+% the URL where to find the single tiles of the SRTM
+SRTM_URL='http://droppr.org/srtm/v4.1/6_5x5_TIFs/';
+
+if exist(climada_global.map_border_file,'file'),load(climada_global.map_border_file);end
 
 % get srtm infos (filenames)
 [srtm_info,is_mat] = climada_srtm_info(centroidsORcountryORshapes,1);
@@ -69,30 +80,50 @@ else
     % mat-file does not yet exist, so we create it
     % init SRTM structure, analog to ETOPO (see etopo_get.m)
     SRTM.x = [];
-    SRTM.y = []; 
+    SRTM.y = [];
     SRTM.h = [];
     SRTM.filename = srtm_info.srtm_save_file;
     SRTM.sourcefile = '';
-
+    
     % check if the srtm files are downloaded and saved in climada data folder, subfolder srtm
     for tile_i = 1:srtm_info.n_tiles
         bare_filename=strrep(srtm_info.srtm_filename{tile_i},'.zip','');
         filename = [srtm_data_dir filesep bare_filename filesep bare_filename '.tif'];
-        if ~exist(filename,'file') 
-            srtm_info = climada_srtm_info(centroidsORcountryORshapes,0);
-            return
-        end
+        
+        if ~exist(filename,'file')
+            
+            % try to download and unzip
+            srtm_info.srtm_URL{tile_i} = [SRTM_URL srtm_info.srtm_filename{tile_i}];
+            try
+                fprintf('retrieving %s from %s (be patient) ... ',bare_filename,srtm_info.srtm_URL{tile_i});
+                unzip(srtm_info.srtm_URL{tile_i},fileparts(filename));
+                fprintf('done\n');
+                
+                if ~exist(filename,'file')
+                    fprintf('ERROR: retrieving %s worked, but unzip failed\n',srtm_info.srtm_filename{tile_i})
+                    srtm_info = climada_srtm_info(centroidsORcountryORshapes,0);
+                    return
+                end
+                
+            catch
+                fprintf('ERROR: retrieving %s failed\n',srtm_info.srtm_filename{tile_i})
+                srtm_info = climada_srtm_info(centroidsORcountryORshapes,0);
+                return
+            end % try
+            
+        end % ~exist(filename,'file')
+        
     end % tile_i
-
+    
     % read srtm tif, including flip upside down
     % init
     [I,J]   = meshgrid([srtm_info.min_max_lon_lat(1): srtm_info.min_max_lon_lat(2)],[srtm_info.min_max_lon_lat(3): srtm_info.min_max_lon_lat(4)]);
-    % srtm_raw_data.grid = 
+    % srtm_raw_data.grid =
     for tile_i = 1:srtm_info.n_tiles
         bare_filename=strrep(srtm_info.srtm_filename{tile_i},'.zip','');
         filename = [srtm_data_dir filesep bare_filename filesep bare_filename '.tif'];
         %filename = [srtm_data_dir filesep strrep(srtm_info.srtm_filename{tile_i},'.zip','.tif')];
-        [~, ~, fE] = fileparts(filename);        
+        [~, ~, fE] = fileparts(filename);
         if strcmp(fE, '.tif') %|| strcmp(fE, '.tif.aux.xml')
             srtm_raw_data(I(tile_i),J(tile_i)).grid = flipud(imread(filename));
             SRTM.sourcefile{tile_i,1} = filename;
@@ -100,7 +131,7 @@ else
             %break;
         end
     end % tile_i
-
+    
     % Concatenate tiles to get one big tile which contains all the relavant
     % srtm info for one country, region or rectangle
     SRTM_grid = [];
@@ -114,7 +145,7 @@ else
         SRTM_grid = [SRTM_grid SRTM_grid_j];
     end
     clear srtm_raw_data SRTM_grid_j
-
+    
     % overwrite no_data_value with a fill_data_value (either zero or the
     % real minimum data)
     % no_data value is the minimum of all values (i.e. -32768 for El Salvador)
@@ -124,26 +155,26 @@ else
     SRTM_grid(SRTM_grid == no_data_value) = fill_data_value;
     % convert to double
     SRTM_grid = double(SRTM_grid);
-
+    
     % read lon/lat information from hdr
     min_max_lon_lat = climada_hdr_read(SRTM.sourcefile);
-
+    
     % create meshgrid
     [x, y] = meshgrid(linspace(min_max_lon_lat(1),min_max_lon_lat(2),size(SRTM_grid,2)),...
-                      linspace(min_max_lon_lat(3),min_max_lon_lat(4),size(SRTM_grid,1)));                
-
+        linspace(min_max_lon_lat(3),min_max_lon_lat(4),size(SRTM_grid,1)));
+    
     % fill SRTM structure, analog to ETOPO (see etopo_get.m)
     SRTM.x = x;
     SRTM.y = y;
     SRTM.h = SRTM_grid;
-
+    
     if save_tile
         % save the SRTM for speedup in subsequent calls
         fprintf('saving SRTM as %s (delete to read new again)\n',SRTM.filename)
         save(SRTM.filename,'SRTM') % contains SRTM
     end
 end %~is_mat
-    
+
 
 % cut out relevant area
 
@@ -165,12 +196,12 @@ if isnumeric(centroidsORcountryORshapes)
     %polygon = centroidsORcountryORshapes([1 3; 2 4]);
     %is_selected = inpoly(points,polygon);
     is_selected = SRTM.x <= centroidsORcountryORshapes(2) & SRTM.x >= centroidsORcountryORshapes(1)...
-                & SRTM.y <= centroidsORcountryORshapes(4) & SRTM.y >= centroidsORcountryORshapes(3);
-    [I,J] = find(is_selected); 
+        & SRTM.y <= centroidsORcountryORshapes(4) & SRTM.y >= centroidsORcountryORshapes(3);
+    [I,J] = find(is_selected);
     min_I = min(I); max_I = max(I); min_J = min(J); max_J = max(J);
     SRTM.x = SRTM.x(min_I:max_I, min_J:max_J);
     SRTM.y = SRTM.y(min_I:max_I, min_J:max_J);
-    SRTM.h = SRTM.h(min_I:max_I, min_J:max_J);  
+    SRTM.h = SRTM.h(min_I:max_I, min_J:max_J);
     if verbose,fprintf('done\n');end
 end % isnumeric(centroidsORcountryORshapes)
 
@@ -179,7 +210,7 @@ if check_plot
     figure('Name','SRTM (90m digital elevation model)','Color',[1 1 1]);
     % create histogramm information to know relevant coloraxes
     %[no,xo] = hist(SRTM.h(:),0:500:7000);
-    %no/sum(no) 
+    %no/sum(no)
     imagesc([min(SRTM.x(:)) max(SRTM.x(:))],[min(SRTM.y(:)) max(SRTM.y(:))],SRTM.h)
     set(gca,'YDir','normal')
     hold on

@@ -37,6 +37,7 @@ function [srtm_info,is_mat] = climada_srtm_info(centroidsORcountryORshapes,silen
 % MODIFICATION HISTORY:
 % Lea Mueller, muellele@gmail.com, 20150720, init based on climada_90m_DEM by Gilles Stassen
 % david.bresch@gmail.com, 20160122, srtm folder moved, some fixes (removed hard-wired paths)
+% david.bresch@gmail.com, 20160126, file info to stdout improved
 %-
 
 srtm_info = [];
@@ -178,8 +179,9 @@ if ~silent_mode
     if ~is_mat
         fprintf('Please download tif files from <a href="%s">%s</a> \n',srtm_address,srtm_address)
         fprintf(' Note: for Tyle X we use XX and for Tyle Y we use YY here\n')
-        fprintf(' save in %s/srtm_XX_YY/srtm_XX_YY.tif \n and unzip the following files (srtm_XX_YY.zip)\n',srtm_data_dir)
+        fprintf(' unzip the following files (srtm_XX_YY.zip)\n',srtm_data_dir,filesep,filesep)
         fprintf('  - %s\n', srtm_filename{:})
+        fprintf(' and save as %s%ssrtm_XX_YY%ssrtm_XX_YY.tif\n',srtm_data_dir,filesep,filesep)
         % fprintf('\t save in %s \n\t and unzip\n', module_data_dir)
         % fprintf('<a href="%s">%s</a> \n', srtm_address, srtm_address)
     else

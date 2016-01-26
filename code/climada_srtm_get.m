@@ -43,7 +43,8 @@ function [SRTM,srtm_info] = climada_srtm_get(centroidsORcountryORshapes,check_pl
 % MODIFICATION HISTORY:
 % Lea Mueller, muellele@gmail.com, 20150723, init based on climada_90m_DEM by Gilles Stassen and etopo_get by David Bresch
 % david.bresch@gmail.com, 20160122, srtm folder moved, some fixes (removed hard-wired paths)
-% david.bresch@gmail.com, 20160126, automatic retreive implemented
+% david.bresch@gmail.com, 20160126, automatic retrieve implemented
+% david.bresch@gmail.com, 20160126, single precision (half the memory need)
 %-
 
 SRTM=[];srtm_info=[]; % init output
@@ -164,9 +165,10 @@ else
         linspace(min_max_lon_lat(3),min_max_lon_lat(4),size(SRTM_grid,1)));
     
     % fill SRTM structure, analog to ETOPO (see etopo_get.m)
-    SRTM.x = x;
-    SRTM.y = y;
-    SRTM.h = SRTM_grid;
+    % 20160126, single precision
+    SRTM.x = single(x);
+    SRTM.y = single(y);
+    SRTM.h = single(SRTM_grid);
     
     if save_tile
         % save the SRTM for speedup in subsequent calls

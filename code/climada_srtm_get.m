@@ -45,6 +45,7 @@ function [SRTM,srtm_info] = climada_srtm_get(centroidsORcountryORshapes,check_pl
 % david.bresch@gmail.com, 20160122, srtm folder moved, some fixes (removed hard-wired paths)
 % david.bresch@gmail.com, 20160126, automatic retrieve implemented
 % david.bresch@gmail.com, 20160126, single precision (half the memory need)
+% david.bresch@gmail.com, 20160513, issue southern hemisphere solved
 %-
 
 SRTM=[];srtm_info=[]; % init output
@@ -107,9 +108,10 @@ else
                 end
                 
             catch
-                fprintf('ERROR: retrieving %s failed\n',srtm_info.srtm_filename{tile_i})
-                srtm_info = climada_srtm_info(centroidsORcountryORshapes,0);
-                return
+                fprintf('ERROR: retrieving %s failed (likely sea tile, continuing)\n',srtm_info.srtm_filename{tile_i})
+                % new: continue (might be a sea tile with no elevation at all)
+                %srtm_info = climada_srtm_info(centroidsORcountryORshapes,0);
+                %return
             end % try
             
         end % ~exist(filename,'file')
@@ -118,19 +120,28 @@ else
     
     % read srtm tif, including flip upside down
     % init
-    [I,J]   = meshgrid([srtm_info.min_max_lon_lat(1): srtm_info.min_max_lon_lat(2)],[srtm_info.min_max_lon_lat(3): srtm_info.min_max_lon_lat(4)]);
+    if srtm_info.min_max_lon_lat(1)>srtm_info.min_max_lon_lat(2)
+        srtm_info.min_max_lon_lat(1:2)=srtm_info.min_max_lon_lat(2:-1:1);
+    end
+    if srtm_info.min_max_lon_lat(3)>srtm_info.min_max_lon_lat(4)
+        srtm_info.min_max_lon_lat(3:4)=srtm_info.min_max_lon_lat(4:-1:3);
+    end
+    [I,J] = meshgrid(srtm_info.min_max_lon_lat(1):srtm_info.min_max_lon_lat(2),...
+        srtm_info.min_max_lon_lat(3):srtm_info.min_max_lon_lat(4));
     % srtm_raw_data.grid =
     for tile_i = 1:srtm_info.n_tiles
         bare_filename=strrep(srtm_info.srtm_filename{tile_i},'.zip','');
         filename = [srtm_data_dir filesep bare_filename filesep bare_filename '.tif'];
-        %filename = [srtm_data_dir filesep strrep(srtm_info.srtm_filename{tile_i},'.zip','.tif')];
         [~, ~, fE] = fileparts(filename);
-        if strcmp(fE, '.tif') %|| strcmp(fE, '.tif.aux.xml')
-            srtm_raw_data(I(tile_i),J(tile_i)).grid = flipud(imread(filename));
+        if exist(filename,'file')
+            if strcmp(fE, '.tif') %|| strcmp(fE, '.tif.aux.xml')
+                srtm_raw_data(I(tile_i),J(tile_i)).grid = flipud(imread(filename));
+                SRTM.sourcefile{tile_i,1} = filename;
+            end
+        else
+            srtm_raw_data(I(tile_i),J(tile_i)).grid = zeros(6000,6000); % patch empty
             SRTM.sourcefile{tile_i,1} = filename;
-            %raw(I(tile_i),J(tile_i)).grid = imread(filename);
-            %break;
-        end
+        end % exist(filename,'file')
     end % tile_i
     
     % Concatenate tiles to get one big tile which contains all the relavant

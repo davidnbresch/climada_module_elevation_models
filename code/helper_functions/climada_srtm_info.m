@@ -38,6 +38,7 @@ function [srtm_info,is_mat] = climada_srtm_info(centroidsORcountryORshapes,silen
 % Lea Mueller, muellele@gmail.com, 20150720, init based on climada_90m_DEM by Gilles Stassen
 % david.bresch@gmail.com, 20160122, srtm folder moved, some fixes (removed hard-wired paths)
 % david.bresch@gmail.com, 20160126, file info to stdout improved
+% david.bresch@gmail.com, 20160513, error in latitude selection for southern hemisphere fixed, prompting for country name if invalid
 %-
 
 srtm_info = [];
@@ -47,7 +48,7 @@ global climada_global
 if ~climada_init_vars,return;end % init/import global variables
 
 if exist(climada_global.map_border_file, 'file')
-    load(climada_global.map_border_file)
+    load(climada_global.map_border_file) % contains shapes
 end
 
 if ~exist('centroidsORcountryORshapes', 'var'), centroidsORcountryORshapes = []; end
@@ -82,39 +83,26 @@ if ~isempty(centroidsORcountryORshapes)
         end
         % define rectangle box
         rect = [min(centroids.lon) max(centroids.lon) min(centroids.lat) max(centroids.lat)];
-        
     elseif isstruct(centroidsORcountryORshapes) && (isfield(centroidsORcountryORshapes,'X') || isfield(centroidsORcountryORshapes,'lon'))
         % input is probably shapes
         shapes = centroidsORcountryORshapes; clear centroidsORcountryORshapes
         if isfield(shapes,'lon'), shapes.X =shapes.lon; shapes.Y = shapes.lat; end
-        % get boundaries
-        bb = [min([shapes(:).X]) min([shapes(:).Y])
-              max([shapes(:).X]) max([shapes(:).Y])];
-        % define rectangle box
-        rect = [bb(:,1)' bb(:,2)']; clear bb
-        
+        rect = [min(shapes.X) max(shapes.X) min(shapes.Y) max(shapes.Y)];
     elseif isnumeric(centroidsORcountryORshapes) && numel(centroidsORcountryORshapes) == 4
         % input is centroids_rect  
         centroids   = [];
         % define rectangle box
         rect        = centroidsORcountryORshapes; clear centroidsORcountryORshapes
-        
     elseif ischar(centroidsORcountryORshapes)
         % input is country name
         centroids   = [];
         country_name= centroidsORcountryORshapes; clear centroidsORcountryORshapes
         [country_name,country_ISO3,shape_index] = climada_country_name(country_name);
         if isempty(shape_index)
-            cprintf([1 0 0],'ERROR: invalid country name \n')
-            [country_name,country_ISO3,shape_index] = climada_country_name;
+            fprintf('ERROR: invalid country name \n')
+            [country_name,country_ISO3,shape_index] = climada_country_name('Single');
         end
-        % input is centroids_rect
-        % get boundaries
-        % bb          = shapes(shape_index).BoundingBox;    % countries with colonies pose problems here...
-        bb = [min(shapes(shape_index).X) min(shapes(shape_index).Y)
-              max(shapes(shape_index).X) max(shapes(shape_index).Y)];
-        % define rectangle box
-        rect = [bb(:,1)' bb(:,2)']; clear bb
+        rect = [min(shapes(shape_index).X) max(shapes(shape_index).X) min(shapes(shape_index).Y) max(shapes(shape_index).Y)];
     end
     
 else
@@ -123,12 +111,7 @@ else
     [country_name,country_ISO3,shape_index] = climada_country_name('Single');
     country_name = char(country_name);
     if isempty(country_name), return; end % error message already printed in climada_country_name
-    % get boundaries
-    % bb          = shapes(shape_index).BoundingBox;    % countries with colonies pose problems here...
-    bb = [min(shapes(shape_index).X) min(shapes(shape_index).Y)
-          max(shapes(shape_index).X) max(shapes(shape_index).Y)];
-    % define rectangle box
-    rect = [bb(:,1)' bb(:,2)']; clear bb
+    rect = [min(shapes(shape_index).X) max(shapes(shape_index).X) min(shapes(shape_index).Y) max(shapes(shape_index).Y)];
 end
 
 % % country string for fprintf and fig title
@@ -141,16 +124,16 @@ end
 % conversion to srtm tile indices
 rect_buffer      = 0.5;     % set buffer to avoid missing data due to imperfect conversions below
 if rect(1) <-179.9,rect(1) = rect(1)+359.9; end
-srtm_min_lon_ndx = max(ceil(72 * (rect(1)-rect_buffer + 180)/(179.28+180.00)),1);
-srtm_max_lon_ndx = min(ceil(72 * (rect(2)+rect_buffer + 180)/(179.28+180.00)),72);
-srtm_min_lat_ndx = max(ceil(24 * (60 - rect(3)+rect_buffer) /( 60.00+ 57.83)),1);
-srtm_max_lat_ndx = min(ceil(24 * (60 - rect(4)-rect_buffer) /( 60.00+ 57.83)),24);
-
-[I,J] = meshgrid([srtm_min_lon_ndx: srtm_max_lon_ndx],[srtm_max_lat_ndx: srtm_min_lat_ndx]);
-
+srtm_min_lon_ndx = max(ceil(72 * (     rect(1)-rect_buffer +180)/(179.28+180.00)),1);
+srtm_max_lon_ndx = min(ceil(72 * (     rect(2)+rect_buffer +180)/(179.28+180.00)),72);
+srtm_min_lat_ndx_ = max(ceil(24 * (60 - rect(3)-rect_buffer     )/( 60.00+ 57.83)),1);
+srtm_max_lat_ndx_ = min(ceil(24 * (60 - rect(4)+rect_buffer     )/( 60.00+ 57.83)),24);
+srtm_min_lat_ndx = min(srtm_min_lat_ndx_,srtm_max_lat_ndx_);
+srtm_max_lat_ndx = max(srtm_min_lat_ndx_,srtm_max_lat_ndx_);
+[I,J] = meshgrid(srtm_min_lon_ndx:srtm_max_lon_ndx,srtm_min_lat_ndx:srtm_max_lat_ndx);
+J=J(end:-1:1); % switch order as latitude is from -60..60, but tiles are numbered from North
 % number of tiles
-n_tiles = (1+srtm_max_lon_ndx-srtm_min_lon_ndx)*(1+srtm_min_lat_ndx-srtm_max_lat_ndx);
-
+n_tiles = (1+abs(srtm_max_lon_ndx-srtm_min_lon_ndx))*(1+abs(srtm_max_lat_ndx-srtm_min_lat_ndx));
 % set srtm filenames
 srtm_filename = cell(n_tiles,1);
 for tile_i = 1:n_tiles

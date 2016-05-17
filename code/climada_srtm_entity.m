@@ -7,13 +7,14 @@ function [entity,centroids,SRTM_info]=climada_srtm_entity(centroidsORcountryORsh
 % PURPOSE:
 %   Starting grom SRTM digital elevation model (90m), construct a country
 %   entity an the corresponding centroids, save both with standard names,
-%   i.e. XXX_{country_name}_SRTM_{entity|centroids}, with III the 3-digit
-%   iso code.
+%   i.e. III_{country_name}_SRTM_{entity|centroids}, with III the 3-digit
+%   iso code and country_name with no spaces, e.g. UnitedStates.
 %
 %   check using climada_entity_plot and climada_centroids_plot
 %   please note that you need to run climada_EDS_calc with
 %   force_re_encode=1 unless you re-generate the hazard with the controids
-%   as generated here.
+%   as generated here. Even better, run climada_assets_encode and save the
+%   encoded entity (
 % CALLING SEQUENCE:
 %   entity=climada_srtm_entity(centroidsORcountryORshapes,check_plot)
 % EXAMPLE:
@@ -34,6 +35,7 @@ function [entity,centroids,SRTM_info]=climada_srtm_entity(centroidsORcountryORsh
 %   SRTM_info: just handed over from climada_srtm_get, see there
 % MODIFICATION HISTORY:
 % David N. Bresch, david.bresch@gmail.com, 20160514, initial (Rotterdam)
+% David N. Bresch, david.bresch@gmail.com, 20160516, full compatibility with eg centroids_generate_hazard_sets
 %-
 
 entity=[];centroids=[];SRTM_info=[]; % init output
@@ -56,8 +58,12 @@ if ~exist('check_plot','var'),check_plot=0;end
 %
 % define all parameters here - no parameters to be defined in code below
 %
-% the spacing of the regular grid to cover sea points (in degrees)
-grid_spacing=.01; % default=.01, hence approx 1km note that this leads to ^2 in # points
+% the spacing of the inner and denser regular grid to cover sea points (in degrees)
+grid_spacing1=.01; % default=.01, hence approx 1km
+grid_distance_km1=100; % the extent of the denser grid from coast in km
+% the spacing of the outer and coarser regular grid to cover sea points (in degrees)
+grid_spacing2=1; % default=1, hence approx 100km
+grid_distance_km2=1000; % the extent of the coarser grid from coast in km
 %
 % set the template entity (to read dummy damagefucntions from)
 template_entity_filename=[climada_global.data_dir filesep 'entities' ...
@@ -75,15 +81,15 @@ n_elements=numel(SRTM.x);
 entity.assets.elevation_m=reshape(SRTM.h,1,n_elements);
 % keep only non-zero points (as we do not need 90m resolution on sea)
 nonzero_pos=find(entity.assets.elevation_m>0);
-entity.assets.elevation_m=entity.assets.elevation_m(nonzero_pos);
-fprintf('%i (%2.0f%%) points above zero\n',length(entity.assets.elevation_m),...
+entity.assets.elevation_m=double(entity.assets.elevation_m(nonzero_pos));
+fprintf('%i (%2.1f%%) points above zero\n',length(entity.assets.elevation_m),...
     length(entity.assets.elevation_m)/n_elements*100);
 entity.assets.lon        =reshape(SRTM.x,1,n_elements);
 boundary_rect(1)=floor(min(entity.assets.lon));boundary_rect(2)=ceil(max(entity.assets.lon));
-entity.assets.lon        =entity.assets.lon(nonzero_pos);
+entity.assets.lon        =double(entity.assets.lon(nonzero_pos));
 entity.assets.lat        =reshape(SRTM.y,1,n_elements);
 boundary_rect(3)=floor(min(entity.assets.lat));boundary_rect(4)=ceil(max(entity.assets.lat));
-entity.assets.lat        =entity.assets.lat(nonzero_pos);
+entity.assets.lat        =double(entity.assets.lat(nonzero_pos));
 entity.assets.Value      =entity.assets.elevation_m; % use elevation as Value to start with
 entity.assets.Deductible =entity.assets.Value*0;
 entity.assets.Cover      =entity.assets.Value;
@@ -99,20 +105,42 @@ if ~isfield(entity.assets,'distance2coast_km') && check_plot>=0
     % climada_distance2coast_km, but the windfield calcuklation is
     % much faster that way (see climada_tc_windfield)
     fprintf('adding distance2coast_km, does take time (a few minutes, but worth the effort)\n')
-    entity.assets.distance2coast_km=climada_distance2coast_km(entity.assets.lon,entity.assets.lat);
+    entity.assets.distance2coast_km=double(climada_distance2coast_km(entity.assets.lon,entity.assets.lat));
 end
 
 % also construct centroids
 % ------------------------
 
+fprintf('adding inner regular grid (a few minutes, but worth the effort)\n')
 % add a regular grid around (for nice plotting etc.)
-[lon,lat] = meshgrid(boundary_rect(1):grid_spacing:boundary_rect(2),...
-    boundary_rect(3):grid_spacing:boundary_rect(4));
-n_elements=numel(lon);
-lon=reshape(lon,1,n_elements);lat=reshape(lat,1,n_elements); % convert to vector
-centroids.lon=[entity.assets.lon lon]; % append
-centroids.lat=[entity.assets.lat lat]; % append
-centroids.elevation_m=[entity.assets.elevation_m lon*0]; % append
+% first, inner grid, denser
+[lon1,lat1] = meshgrid(boundary_rect(1):grid_spacing1:boundary_rect(2),...
+    boundary_rect(3):grid_spacing1:boundary_rect(4));
+n_elements=numel(lon1);
+lon1=reshape(lon1,1,n_elements);lat1=reshape(lat1,1,n_elements); % convert to vector
+%[distance2coast_km,lon1,lat1]=climada_distance2coast_km(lon1,lat1,0,0,-grid_distance_km1);
+[distance2coast_km,lon1,lat1]=climada_distance2coast_km(lon1,lat1);
+grid_distance_pos=find(distance2coast_km>0 & distance2coast_km<=grid_distance_km1);
+lon1=lon1(grid_distance_pos);
+lat1=lat1(grid_distance_pos);
+% second, outer grid, coarser
+fprintf('adding outer regular grid (a few minutes, but worth the effort)\n')
+[lon2,lat2] = meshgrid(boundary_rect(1):grid_spacing2:boundary_rect(2),...
+    boundary_rect(3):grid_spacing2:boundary_rect(4));
+n_elements=numel(lon2);
+lon2=reshape(lon2,1,n_elements);lat2=reshape(lat2,1,n_elements); % convert to vector
+%[distance2coast_km,lon2,lat2]=climada_distance2coast_km(lon2,lat2,0,0,-grid_distance_km2);
+[distance2coast_km,lon2,lat2]=climada_distance2coast_km(lon2,lat2);
+grid_distance_pos=find(distance2coast_km>0 & distance2coast_km<=grid_distance_km2);
+lon=[lon1 lon2(grid_distance_pos)];
+lat=[lat1 lat2(grid_distance_pos)];
+% remove duplicates
+[~,unique_pos]=unique(lon+lat*1i); % use complex notation to make lon/lat tuples unique
+lon=lon(unique_pos);lat=lat(unique_pos);
+
+centroids.lon=double([entity.assets.lon lon]); % append
+centroids.lat=double([entity.assets.lat lat]); % append
+centroids.elevation_m=[entity.assets.elevation_m double(lon*0)]; % append
 centroids.centroid_ID=1:length(centroids.lon); % such that IDs in entity match
 centroids.onLand=centroids.lon*0;
 centroids.onLand(1:length(entity.assets.lon))=1; % SRTM>0 is on land
@@ -122,7 +150,7 @@ centroids.comment=entity.assets.comment;
 if isfield(entity.assets,'distance2coast_km')
     fprintf('adding distance2coast_km, does take time (a few minutes, but worth the effort)\n')
     distance2coast_km=climada_distance2coast_km(lon,lat);
-    centroids.distance2coast_km=[entity.assets.distance2coast_km distance2coast_km]; % append
+    centroids.distance2coast_km=[entity.assets.distance2coast_km double(distance2coast_km)]; % append
 end
 
 % add dummy damage functions

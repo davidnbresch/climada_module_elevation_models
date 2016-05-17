@@ -63,7 +63,11 @@ grid_spacing1=.01; % default=.01, hence approx 1km
 grid_distance_km1=100; % the extent of the denser grid from coast in km
 % the spacing of the outer and coarser regular grid to cover sea points (in degrees)
 grid_spacing2=1; % default=1, hence approx 100km
+%grid_spacing2=.05; % default=1, hence approx 100km
 grid_distance_km2=1000; % the extent of the coarser grid from coast in km
+%
+% extension of the entity filename, III_{country_name}_SRTM_{entity|centroids}
+entity_filename_ext='SRTM'; % default SRTM
 %
 % set the template entity (to read dummy damagefucntions from)
 template_entity_filename=[climada_global.data_dir filesep 'entities' ...
@@ -162,14 +166,14 @@ entity.measures       = climada_measures_read(template_entity_filename);
 % add template discount rates
 entity.discount       = climada_discount_read(template_entity_filename);
 
-entity_save_file=[entity.assets.admin0_ISO3 '_' entity.assets.admin0_name '_SRTM_entity'];
+entity_save_file=[entity.assets.admin0_ISO3 '_' entity.assets.admin0_name '_' entity_filename_ext '_entity'];
 entity_save_file=[climada_global.data_dir filesep 'entities' filesep entity_save_file];
 % save entity as .mat file for fast access
 fprintf('saving entity as %s ...',entity_save_file);
 save(entity_save_file,'entity','-v7.3'); % -v7.3 due to (huge) size of the file
 fprintf(' done\n');
 
-centroids_save_file=[entity.assets.admin0_ISO3 '_' entity.assets.admin0_name '_SRTM_centroids'];
+centroids_save_file=[entity.assets.admin0_ISO3 '_' entity.assets.admin0_name '_' entity_filename_ext '_centroids'];
 centroids_save_file=[climada_global.data_dir filesep 'centroids' filesep centroids_save_file];
 fprintf('saving centroids as %s ...',centroids_save_file);
 save(centroids_save_file,'centroids','-v7.3'); % -v7.3 due to (huge) size of the file

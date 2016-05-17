@@ -37,7 +37,7 @@ function ETOPO=etopo_get(etopo_coords,check_plot,save_tile)
 %   save_tile: =1: save the respective etopo tile, in order to speed up in
 %       subsequent calls. =0 (default): do not save anything
 %       Warning: the user is responsible for managing such tiles in the
-%       ../data/results folder 
+%       ../data/results folder
 %       The option has mainly been introduced to support use of etopo_get
 %       under Octave, which does not yert provide ncread. Please note that
 %       check_plot does not work on subsequent calls.
@@ -176,4 +176,4 @@ end
 
 % netcdf.close(etopo_data_file) % seems not be required
 
-return
+end % etopo_get

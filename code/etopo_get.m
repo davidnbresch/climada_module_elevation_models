@@ -53,6 +53,7 @@ function ETOPO=etopo_get(etopo_coords,check_plot,save_tile)
 % David N. Bresch, david.bresch@gmail.com, 20140422
 % David N. Bresch, david.bresch@gmail.com, 20141022, small fix if requested area ourside limits (just a FIX, not a nice one, see below)
 % David N. Bresch, david.bresch@gmail.com, 20150101, save_tile
+% David N. Bresch, david.bresch@gmail.com, 20160526, better error messaging for ETOPO issues
 %-
 
 ETOPO=[]; % init output
@@ -93,7 +94,7 @@ if exist(etopo_save_file,'file')
     return
 end
 
-if ~exist('ncread')
+if ~exist('ncread','file')
     fprintf('Error: ncread does not exist, aborted (might be in toolbox/matlab/imagesci)\n');
     return
 end
@@ -103,6 +104,12 @@ end
 
 if ~exist(etopo_data_file,'file')
     fprintf('ERROR: ETOPO data file not found: %s\n',etopo_data_file);
+    fprintf(['Please download the file ' ...
+        '<a href="http://www.ngdc.noaa.gov/mgg/global/relief/ETOPO1/data/ice_surface/grid_registered/netcdf/ETOPO1_Ice_g_gmt4.grd.gz">'...
+        'ETOPO1_Ice_g_gmt4.grd.gz</a>\n' ...
+        '- move it into the data folder of the elevation models module\n', ...
+        '- unzip it (it might do so automatically, e.g. on a Mac)\n' ...
+        '- Rename it to ETOPO1.nc\n']);
     return
 else
     fprintf('reading ETOPO data from %s\n',etopo_data_file);

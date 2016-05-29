@@ -34,8 +34,9 @@ function [entity,centroids,SRTM_info]=climada_srtm_entity(centroidsORcountryORsh
 %   centroids: a climada centroids structure, see climada_centroids_read
 %   SRTM_info: just handed over from climada_srtm_get, see there
 % MODIFICATION HISTORY:
-% David N. Bresch, david.bresch@gmail.com, 20160514, initial (Rotterdam)
-% David N. Bresch, david.bresch@gmail.com, 20160516, full compatibility with eg centroids_generate_hazard_sets
+% david.bresch@gmail.com, 20160514, initial (Rotterdam)
+% david.bresch@gmail.com, 20160516, full compatibility with eg centroids_generate_hazard_sets
+% david.bresch@gmail.com, 20160529, Cancel pressed works
 %-
 
 entity=[];centroids=[];SRTM_info=[]; % init output
@@ -75,6 +76,7 @@ template_entity_filename=[climada_global.data_dir filesep 'entities' ...
 %
 
 [SRTM,SRTM_info]=climada_srtm_get(centroidsORcountryORshapes,abs(check_plot));
+if isempty(SRTM_info),return;end % Cancel pressed
 
 % construct the entity
 % --------------------

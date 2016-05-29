@@ -41,11 +41,12 @@ function [SRTM,srtm_info] = climada_srtm_get(centroidsORcountryORshapes,check_pl
 %   If save_tile=1, the tile as returned is also saved to
 %       ../data/results/etopo_*
 % MODIFICATION HISTORY:
-% Lea Mueller, muellele@gmail.com, 20150723, init based on climada_90m_DEM by Gilles Stassen and etopo_get by David Bresch
+% muellele@gmail.com, 20150723, init based on climada_90m_DEM by Gilles Stassen and etopo_get by David Bresch
 % david.bresch@gmail.com, 20160122, srtm folder moved, some fixes (removed hard-wired paths)
 % david.bresch@gmail.com, 20160126, automatic retrieve implemented
 % david.bresch@gmail.com, 20160126, single precision (half the memory need)
 % david.bresch@gmail.com, 20160513, issue southern hemisphere solved
+% david.bresch@gmail.com, 20160529, Cancel pressed works
 %-
 
 SRTM=[];srtm_info=[]; % init output
@@ -74,6 +75,8 @@ if exist(climada_global.map_border_file,'file'),load(climada_global.map_border_f
 % get srtm infos (filenames)
 [srtm_info,is_mat] = climada_srtm_info(centroidsORcountryORshapes,1);
 
+if isempty(srtm_info),return;end % Cancel pressed
+    
 if is_mat
     % load from previously processed .mat file
     if verbose,fprintf('loading SRTM from %s\n',srtm_info.srtm_save_file);end

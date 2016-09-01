@@ -6,3 +6,4 @@ data/ETOPO2.nc
 data/srtm_*.hdr
 data/srtm_*.tfw
 data/srtm_*.tif
+.DS_Store

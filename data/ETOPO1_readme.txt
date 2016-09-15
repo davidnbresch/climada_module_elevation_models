@@ -4,6 +4,7 @@ http://www.ngdc.noaa.gov/mgg/global/relief/ETOPO1/data/ice_surface/grid_register
 If there is no file ETOPO1.nc in this folder, download http://www.ngdc.noaa.gov/mgg/global/relief/ETOPO1/data/ice_surface/grid_registered/netcdf/ETOPO1_Ice_g_gmt4.grd.gz and rename it (after unzipping, if necessary) to ETOPO1.nc
 
 
+———
 
 
 We’ve tried to use an approach with only subsets, readily available on http://maps.ngdc.noaa.gov/viewers/wcs-client/ but the netCDF files of these junks did not have any position information stored, hence could not be used. Hence we resorted to the full dataset. On the positive side, this means one only has to download this big data (zipped for download only 377 MB) only once and gets full global coverage. Downside is the mere fact that the date occupies almost 1GB…

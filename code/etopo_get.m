@@ -112,7 +112,7 @@ if ~exist(etopo_data_file,'file')
         '- Rename it to ETOPO1.nc\n']);
     return
 else
-    fprintf('reading ETOPO data from %s\n',etopo_data_file);
+    %fprintf('reading ETOPO data from %s\n',etopo_data_file);
     %info=ncinfo(etopo_data_file); % easiest way to test for nc
 end
 

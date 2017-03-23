@@ -47,6 +47,7 @@ function [SRTM,srtm_info] = climada_srtm_get(centroidsORcountryORshapes,check_pl
 % david.bresch@gmail.com, 20160126, single precision (half the memory need)
 % david.bresch@gmail.com, 20160513, issue southern hemisphere solved
 % david.bresch@gmail.com, 20160529, Cancel pressed works
+% david.bresch@gmail.com, 20170323, issue with latitude for southern hemisphere patched, be careful, i.e. check output (as the tiles will be downloaded from www)
 %-
 
 SRTM=[];srtm_info=[]; % init output
@@ -191,6 +192,7 @@ else
     end
 end %~is_mat
 
+fprintf('SRTM area %f %f %f %f\n',min(min(SRTM.x)),max(max(SRTM.x)),min(min(SRTM.y)),max(max(SRTM.y)));
 
 % cut out relevant area
 

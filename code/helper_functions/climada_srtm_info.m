@@ -12,6 +12,10 @@ function [srtm_info,is_mat] = climada_srtm_info(centroidsORcountryORshapes,silen
 %   http://srtm.csi.cgiar.org/SELECTION/inputCoord.asp,
 %   (or possibly also ftp://srtm.csi.cgiar.org/SRTM_V41/SRTM_Data_GeoTiff/,
 %   http://droppr.org/srtm/v4.1/6_5x5_TIFs/)
+%
+%   See also https://dds.cr.usgs.gov/srtm/version2_1/SRTM3
+%   https://dds.cr.usgs.gov/srtm/version2_1/Documentation/Quickstart.pdf
+%   https://dds.cr.usgs.gov/srtm/version2_1/Documentation/SRTM_Topo.pdf
 %   
 %   Next call: climada_srtm_get
 % CALLING SEQUENCE:
@@ -39,6 +43,7 @@ function [srtm_info,is_mat] = climada_srtm_info(centroidsORcountryORshapes,silen
 % david.bresch@gmail.com, 20160122, srtm folder moved, some fixes (removed hard-wired paths)
 % david.bresch@gmail.com, 20160126, file info to stdout improved
 % david.bresch@gmail.com, 20160513, error in latitude selection for southern hemisphere fixed, prompting for country name if invalid
+% david.bresch@gmail.com, 20170323, issue with latitude for southern hemisphere patched, be careful, i.e. check output (as the tiles will be downloaded from www)
 %-
 
 srtm_info = [];
@@ -126,6 +131,12 @@ rect_buffer      = 0.5;     % set buffer to avoid missing data due to imperfect 
 if rect(1) <-179.9,rect(1) = rect(1)+359.9; end
 srtm_min_lon_ndx = max(ceil(72 * (     rect(1)-rect_buffer +180)/(179.28+180.00)),1);
 srtm_max_lon_ndx = min(ceil(72 * (     rect(2)+rect_buffer +180)/(179.28+180.00)),72);
+if rect(3)<0 && rect(4)<0
+    if ~silent_mode,fprintf('swapping min/max lat on Southern hemisphere\n');end
+    rr=rect(4);
+    rect(4)=rect(3);
+    rect(3)=rr;
+end
 srtm_min_lat_ndx_ = max(ceil(24 * (60 - rect(3)-rect_buffer     )/( 60.00+ 57.83)),1);
 srtm_max_lat_ndx_ = min(ceil(24 * (60 - rect(4)+rect_buffer     )/( 60.00+ 57.83)),24);
 srtm_min_lat_ndx = min(srtm_min_lat_ndx_,srtm_max_lat_ndx_);
